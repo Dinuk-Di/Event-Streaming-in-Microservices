@@ -1,5 +1,6 @@
 package com.ordermanagement.order_processing_service.kafka;
-import com.ordermanagement.kafka.avro.Order;
+
+import com.ordermanagement.dto.Order;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -21,6 +22,7 @@ public class OrderConsumer {
         dltStrategy = DltStrategy.FAIL_ON_ERROR, // Sends to DLQ [cite: 7]
         dltTopicSuffix = "-dlq" // Topic will be 'orders-dlq'
     )
+
     @KafkaListener(topics = "${app.topics.orders}", groupId = "order-processor-group")
     public void handleOrder(Order order, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
         log.info("Processing order {} from topic {}", order.getOrderId(), topic);
