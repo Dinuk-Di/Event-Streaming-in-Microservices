@@ -70,8 +70,8 @@ services:
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       SERVER_PORT: 8090
       SPRING_KAFKA_TOPIC_NAME: orders
-      SENDGRID_API_KEY: "YOUR_REAL_SENDGRID_API_KEY"
-      SENDGRID_FROM_EMAIL: "your-verified-sender@example.com"
+      SENDGRID_API_KEY: ""
+      SENDGRID_FROM_EMAIL: ""
     networks:
       - app-network
 
@@ -92,8 +92,8 @@ services:
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       SERVER_PORT: 8091
       SPRING_KAFKA_TOPIC_NAME: orders
-      SENDGRID_API_KEY: "YOUR_REAL_SENDGRID_API_KEY"
-      SENDGRID_FROM_EMAIL: "your-verified-sender@example.com"
+      SENDGRID_API_KEY: ""
+      SENDGRID_FROM_EMAIL: ""
     networks:
       - app-network
 
