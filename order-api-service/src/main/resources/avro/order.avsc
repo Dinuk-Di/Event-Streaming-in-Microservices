@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "Order",
-  "namespace": "com.example.kafka.avro",
+  "namespace": "com.ordermanagement.dto",
   "fields": [
     { "name": "orderId", "type": "string" },
     { "name": "product", "type": "string" },
