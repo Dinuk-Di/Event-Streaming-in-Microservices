@@ -7,6 +7,8 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - app-network
 
   kafka:
     image: confluentinc/cp-kafka:7.3.0
@@ -14,105 +16,105 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
-      - "29092:29092"
+      - "9092:9092"   
+      - "29092:29092" 
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: nc -z localhost 9092 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.3.0
+    container_name: schema-registry
     depends_on:
       - kafka
     ports:
       - "8081:8081"
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'kafka:9092'
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'kafka:29092'
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
 
-  order-service:
-    # Build the Dockerfile located in the ./order-service directory
+  order-api-service:
     build:
-      context: .
-      dockerfile: ./order-service/Dockerfile
-    container_name: order-service
+      context: ./order-api-service
+      dockerfile: Dockerfile
+    container_name: order-api-service
     ports:
-      # Maps your host port 8085 to the container's port 8085
-      - "8085:8085"
+      - "8090:8090"
     depends_on:
       kafka:
-        condition: service_started
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
     environment:
-      # This OVERRIDES the value in application.properties
-      # It correctly points to the internal Kafka listener
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      # Your application properties
-      SERVER_PORT: 8085
-      SPRING_KAFKA_TOPIC_NAME: order-topic
-      # Placeholders for your API keys
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      SERVER_PORT: 8090
+      SPRING_KAFKA_TOPIC_NAME: orders
       SENDGRID_API_KEY: "YOUR_REAL_SENDGRID_API_KEY"
       SENDGRID_FROM_EMAIL: "your-verified-sender@example.com"
+    networks:
+      - app-network
 
-  stock-service:
-    # Build the Dockerfile located in the ./stock-service directory
+  order-processing-service:
     build:
-      context: .
-      dockerfile: ./stock-service/Dockerfile
-    container_name: stock-service
+      context: ./order-processing-service
+      dockerfile: Dockerfile
+    container_name: order-processing-service
     ports:
-      # Maps your host port 8081 to the container's port 8081
-      - "8089:8089"
+      - "8091:8091"
     depends_on:
       kafka:
-        condition: service_started
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
     environment:
-      # This OVERRIDES the value in application.properties
-      # It correctly points to the internal Kafka listener
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      # Your application properties
-      SERVER_PORT: 8089
-      SPRING_KAFKA_TOPIC_NAME: order-topic
-
-  email-service:
-    # Build the Dockerfile located in the ./email-service directory
-    build:
-      context: .
-      dockerfile: ./email-service/Dockerfile
-    container_name: email-service
-    ports:
-      # Maps your host port 8083 to the container's port 8083
-      - "8083:8083"
-    depends_on:
-      kafka:
-        condition: service_started
-    environment:
-      # This OVERRIDES the value in application.properties
-      # It correctly points to the internal Kafka listener
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      # Your application properties
-      SERVER_PORT: 8083
-      SPRING_KAFKA_TOPIC_NAME: order-topic
-      # Placeholders for your API keys
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      SERVER_PORT: 8091
+      SPRING_KAFKA_TOPIC_NAME: orders
       SENDGRID_API_KEY: "YOUR_REAL_SENDGRID_API_KEY"
       SENDGRID_FROM_EMAIL: "your-verified-sender@example.com"
+    networks:
+      - app-network
 
   kafka-consumer:
-    image: confluentinc/cp-kafka:7.3.0
+    image: confluentinc/cp-schema-registry:7.3.0
     container_name: kafka-consumer
+    user: root
     depends_on:
       - kafka
-    # This command block is now corrected
+      - schema-registry
     command: >
       sh -c "
-        echo 'Waiting for Kafka to be ready...'
-        cub kafka-ready -b kafka:29092 1 60
-        echo 'Kafka is ready!'
-        
-        # This is now on a single line to avoid shell errors
-        kafka-console-consumer --bootstrap-server kafka:29092 --topic order-topic --from-beginning
+        echo 'Waiting for Schema Registry...';
+        while ! nc -z schema-registry 8081; do sleep 1; done;
+        echo 'Schema Registry is ready!';
+        echo 'Starting Avro Consumer...';
+        kafka-avro-console-consumer --bootstrap-server kafka:29092 --topic orders --property schema.registry.url=http://schema-registry:8081 --from-beginning
       "
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
