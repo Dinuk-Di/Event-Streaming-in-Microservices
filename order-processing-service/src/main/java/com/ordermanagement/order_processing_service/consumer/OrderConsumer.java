@@ -25,12 +25,11 @@ public class OrderConsumer {
         this.priceAggregationService = priceAggregationService;
     }
 
-@RetryableTopic(
+    @RetryableTopic(
         attempts = "3",
         backoff = @Backoff(delay = 1000, multiplier = 2.0),
         exclude = { NonRetryableException.class },
-        dltStrategy = DltStrategy.SEND_TO_DLT, 
-        dltTopicSuffix = "-dlq" 
+        dltTopicSuffix = "-dlq"
     )
     @KafkaListener(topics = "${app.topics.orders}", groupId = "order-processor-group")
     public void handleOrder(Order order, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {

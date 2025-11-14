@@ -69,7 +69,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       SERVER_PORT: 8090
-      SPRING_KAFKA_TOPIC_NAME: orders
+      APP_TOPICS_ORDERS: orders
       SENDGRID_API_KEY: ""
       SENDGRID_FROM_EMAIL: ""
     networks:
@@ -91,15 +91,16 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       SERVER_PORT: 8091
-      SPRING_KAFKA_TOPIC_NAME: orders
+      APP_TOPICS_ORDERS: orders
+      KAFKA_TOPIC_ORDERS_DLQ: orders-dlq
       SENDGRID_API_KEY: ""
       SENDGRID_FROM_EMAIL: ""
     networks:
       - app-network
 
-  kafka-consumer:
+  kafka-dead-letter-queue:
     image: confluentinc/cp-schema-registry:7.3.0
-    container_name: kafka-consumer
+    container_name: kafka-dead-letter-queue
     user: root
     depends_on:
       - kafka
@@ -110,7 +111,7 @@ services:
         while ! nc -z schema-registry 8081; do sleep 1; done;
         echo 'Schema Registry is ready!';
         echo 'Starting Avro Consumer...';
-        kafka-avro-console-consumer --bootstrap-server kafka:29092 --topic orders --property schema.registry.url=http://schema-registry:8081 --from-beginning
+        kafka-avro-console-consumer --bootstrap-server kafka:29092 --topic orders-dlq --property schema.registry.url=http://schema-registry:8081 --from-beginning
       "
     networks:
       - app-network
