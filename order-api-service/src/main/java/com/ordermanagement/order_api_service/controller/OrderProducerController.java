@@ -1,16 +1,12 @@
 package com.ordermanagement.order_api_service.controller;
 
 import com.ordermanagement.dto.Order;
-import com.ordermanagement.order_api_service.kafka.OrderProducer;
-import lombok.RequiredArgsConstructor;
+import com.ordermanagement.order_api_service.producer.OrderProducer;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.UUID;
 
 @RestController
 public class OrderProducerController {
